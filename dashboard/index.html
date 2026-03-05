@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AWS Config Compliance Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&family=Orbitron:wght@700;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #080b0f;
+      --surface:    #0d1117;
+      --border:     rgba(0,255,136,0.15);
+      --green:      #00ff88;
+      --red:        #ff2d55;
+      --orange:     #ff6b00;
+      --yellow:     #ffd60a;
+      --blue:       #00ccff;
+      --muted:      #4a6a7a;
+      --text:       #e2e8f0;
+      --mono:       'IBM Plex Mono', monospace;
+      --display:    'Orbitron', sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--mono);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Grid bg */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background-image:
+        linear-gradient(rgba(0,255,136,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,255,136,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+    }
+
+    .wrap { position: relative; z-index: 1; max-width: 1100px; margin: 0 auto; padding: 36px 24px; }
+
+    /* ── Header ── */
+    .header { margin-bottom: 40px; }
+    .header-badge {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 10px;
+    }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--green); box-shadow: 0 0 12px var(--green);
+      animation: blink 2s infinite;
+    }
+    .badge-text { font-size: 11px; color: var(--green); letter-spacing: 4px; text-transform: uppercase; }
+    h1 {
+      font-family: var(--display); font-size: clamp(22px, 4vw, 38px);
+      font-weight: 900; letter-spacing: 2px;
+      background: linear-gradient(135deg, #fff 0%, var(--green) 60%, var(--blue) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .subtitle { color: var(--muted); font-size: 12px; margin-top: 8px; letter-spacing: 1px; }
+
+    /* ── API URL input ── */
+    .api-row {
+      display: flex; gap: 10px; margin-bottom: 32px; align-items: center;
+    }
+    .api-row input {
+      flex: 1; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 6px; padding: 10px 14px; color: var(--green);
+      font-family: var(--mono); font-size: 12px; outline: none;
+    }
+    .api-row input:focus { border-color: rgba(0,255,136,0.5); }
+    .btn {
+      padding: 10px 20px; background: rgba(0,255,136,0.08);
+      border: 1px solid rgba(0,255,136,0.4); border-radius: 6px;
+      color: var(--green); font-family: var(--mono); font-size: 12px;
+      font-weight: 600; letter-spacing: 2px; cursor: pointer;
+      text-transform: uppercase; transition: all 0.2s; white-space: nowrap;
+    }
+    .btn:hover { background: rgba(0,255,136,0.15); transform: translateY(-1px); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    /* ── Summary cards ── */
+    .summary-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 14px; margin-bottom: 32px;
+    }
+    .stat-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 18px 16px;
+      animation: fadeIn 0.4s ease forwards; opacity: 0;
+    }
+    .stat-label { font-size: 10px; color: var(--muted); letter-spacing: 3px; text-transform: uppercase; margin-bottom: 8px; }
+    .stat-value { font-family: var(--display); font-size: 32px; font-weight: 900; line-height: 1; }
+    .stat-sub { font-size: 10px; color: var(--muted); margin-top: 6px; }
+
+    /* ── Score bar ── */
+    .score-bar-wrap { margin-bottom: 32px; }
+    .score-bar-track {
+      height: 6px; background: #1a2a3a; border-radius: 3px;
+      overflow: hidden; margin-top: 10px;
+    }
+    .score-bar-fill {
+      height: 100%; border-radius: 3px;
+      transition: width 1.2s cubic-bezier(0.22,1,0.36,1);
+    }
+    .score-label { font-size: 11px; color: var(--muted); letter-spacing: 2px; margin-bottom: 4px; }
+
+    /* ── Rules table ── */
+    .section-title {
+      font-size: 11px; color: var(--green); letter-spacing: 3px;
+      text-transform: uppercase; margin-bottom: 14px;
+    }
+    .rules-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .rule-card {
+      background: var(--surface); border-radius: 8px;
+      border-left: 3px solid transparent;
+      padding: 14px 16px; cursor: pointer;
+      transition: transform 0.15s, background 0.15s;
+      animation: fadeIn 0.4s ease forwards; opacity: 0;
+    }
+    .rule-card:hover { transform: translateX(4px); background: #111820; }
+
+    .rule-header { display: flex; align-items: center; gap: 10px; }
+    .rule-name { font-size: 13px; font-weight: 600; flex: 1; }
+    .badge {
+      font-size: 10px; font-weight: 600; letter-spacing: 2px;
+      padding: 3px 10px; border-radius: 20px; text-transform: uppercase;
+    }
+    .rule-resources { margin-top: 10px; display: none; }
+    .rule-resources.open { display: block; }
+    .resource-item {
+      font-size: 11px; color: var(--muted); padding: 6px 0;
+      border-top: 1px solid rgba(255,255,255,0.04);
+      display: flex; gap: 8px; align-items: flex-start;
+    }
+    .resource-id { color: var(--orange); min-width: 200px; }
+
+    /* ── States ── */
+    .state-box {
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; padding: 80px 24px; gap: 16px;
+      border: 1px dashed rgba(0,255,136,0.1); border-radius: 10px;
+    }
+    .state-icon { font-size: 36px; opacity: 0.3; }
+    .state-text { font-size: 12px; color: var(--muted); letter-spacing: 2px; text-align: center; }
+
+    .spinner {
+      width: 36px; height: 36px;
+      border: 2px solid rgba(0,255,136,0.2);
+      border-top-color: var(--green); border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      margin-top: 48px; padding-top: 16px;
+      border-top: 1px solid rgba(255,255,255,0.04);
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 10px; color: #2a3a4a; letter-spacing: 2px;
+    }
+
+    /* ── Animations ── */
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    @keyframes spin   { to { transform: rotate(360deg); } }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-badge">
+      <div class="dot"></div>
+      <span class="badge-text">Live · AWS Config · Real-Time Compliance</span>
+    </div>
+    <h1>CONFIG COMPLIANCE DASHBOARD</h1>
+    <p class="subtitle">Powered by AWS Config + Lambda · Built by Sadiel Almanza</p>
+  </div>
+
+  <!-- API URL input -->
+  <div class="api-row">
+    <input
+      type="text"
+      id="apiUrl"
+      placeholder="Paste your API Gateway URL here → https://abc123.execute-api.us-east-1.amazonaws.com/compliance"
+    />
+    <button class="btn" id="scanBtn" onclick="fetchCompliance()">▶ Scan</button>
+  </div>
+
+  <!-- Dynamic content -->
+  <div id="content">
+    <div class="state-box">
+      <div class="state-icon">◈</div>
+      <div class="state-text">ENTER YOUR API GATEWAY URL AND HIT SCAN<br>TO PULL LIVE COMPLIANCE DATA FROM YOUR AWS ACCOUNT</div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <span>AWS CONFIG COMPLIANCE DASHBOARD · PORTFOLIO PROJECT</span>
+    <span id="scannedAt"></span>
+  </div>
+</div>
+
+<script>
+  const SEVERITY = {
+    COMPLIANT:        { color: "#30d158", bg: "rgba(48,209,88,0.08)",   border: "#30d158", label: "COMPLIANT" },
+    NON_COMPLIANT:    { color: "#ff2d55", bg: "rgba(255,45,85,0.08)",   border: "#ff2d55", label: "NON-COMPLIANT" },
+    INSUFFICIENT_DATA:{ color: "#ffd60a", bg: "rgba(255,214,10,0.08)",  border: "#ffd60a", label: "NO DATA" },
+    NOT_APPLICABLE:   { color: "#4a6a7a", bg: "rgba(74,106,122,0.08)",  border: "#4a6a7a", label: "N/A" },
+  };
+
+  function sev(type) { return SEVERITY[type] || SEVERITY.NOT_APPLICABLE; }
+
+  async function fetchCompliance() {
+    const url = document.getElementById("apiUrl").value.trim();
+    if (!url) { alert("Paste your API Gateway URL first."); return; }
+
+    const btn = document.getElementById("scanBtn");
+    btn.disabled = true; btn.textContent = "SCANNING...";
+
+    document.getElementById("content").innerHTML = `
+      <div class="state-box">
+        <div class="spinner"></div>
+        <div class="state-text">QUERYING AWS CONFIG...</div>
+      </div>`;
+
+    try {
+      const res  = await fetch(url);
+      const data = await res.json();
+      // API Gateway wraps in body string if using Lambda proxy
+      const payload = typeof data.body === "string" ? JSON.parse(data.body) : data;
+      render(payload);
+    } catch (e) {
+      document.getElementById("content").innerHTML = `
+        <div class="state-box">
+          <div class="state-icon" style="color:#ff2d55">⚠</div>
+          <div class="state-text" style="color:#ff2d55">FETCH FAILED — CHECK YOUR URL AND CORS SETTINGS<br><small style="opacity:.5">${e.message}</small></div>
+        </div>`;
+    }
+
+    btn.disabled = false; btn.textContent = "▶ Scan";
+  }
+
+  function render({ summary, rules }) {
+    const compliancePct = summary.total
+      ? Math.round((summary.compliant / summary.total) * 100) : 0;
+    const barColor = compliancePct >= 80 ? "#30d158" : compliancePct >= 50 ? "#ffd60a" : "#ff2d55";
+
+    document.getElementById("scannedAt").textContent =
+      "LAST SCAN · " + new Date(summary.scannedAt).toLocaleTimeString();
+
+    document.getElementById("content").innerHTML = `
+      <!-- Summary cards -->
+      <div class="summary-grid">
+        ${statCard("TOTAL RULES",     summary.total,              "#e2e8f0", 0)}
+        ${statCard("COMPLIANT",       summary.compliant,          "#30d158", 1)}
+        ${statCard("NON-COMPLIANT",   summary.nonCompliant,       "#ff2d55", 2)}
+        ${statCard("NO DATA YET",     summary.insufficientData,   "#ffd60a", 3)}
+      </div>
+
+      <!-- Score bar -->
+      <div class="score-bar-wrap">
+        <div class="score-label">COMPLIANCE SCORE — ${compliancePct}%</div>
+        <div class="score-bar-track">
+          <div class="score-bar-fill" id="scoreFill" style="width:0%;background:${barColor}"></div>
+        </div>
+      </div>
+
+      <!-- Rules -->
+      <div class="section-title">// Config Rules</div>
+      <div class="rules-list">
+        ${rules.map((r, i) => ruleCard(r, i)).join("")}
+      </div>`;
+
+    // Animate score bar after paint
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        const fill = document.getElementById("scoreFill");
+        if (fill) fill.style.width = compliancePct + "%";
+      }, 100);
+    });
+  }
+
+  function statCard(label, value, color, delay) {
+    return `
+      <div class="stat-card" style="animation-delay:${delay * 0.08}s">
+        <div class="stat-label">${label}</div>
+        <div class="stat-value" style="color:${color}">${value}</div>
+      </div>`;
+  }
+
+  function ruleCard(rule, i) {
+    const s = sev(rule.complianceType);
+    const hasResources = rule.nonCompliantResources?.length > 0;
+    const resources = hasResources
+      ? rule.nonCompliantResources.map(r => `
+          <div class="resource-item">
+            <span style="color:#4a6a7a;min-width:120px">${r.resourceType.split("::").pop()}</span>
+            <span class="resource-id">${r.resourceId}</span>
+            <span>${r.annotation}</span>
+          </div>`).join("")
+      : "";
+
+    return `
+      <div class="rule-card"
+        style="border-left-color:${s.border};animation-delay:${i * 0.06}s"
+        onclick="toggleRule(this)">
+        <div class="rule-header">
+          <span class="rule-name">${rule.ruleName}</span>
+          <span class="badge" style="color:${s.color};background:${s.bg}">${s.label}</span>
+          ${rule.nonCompliantCount > 0
+            ? `<span style="font-size:11px;color:#ff2d55">${rule.nonCompliantCount} resource${rule.nonCompliantCount > 1 ? "s" : ""}</span>`
+            : ""}
+        </div>
+        ${hasResources ? `<div class="rule-resources">${resources}</div>` : ""}
+      </div>`;
+  }
+
+  function toggleRule(card) {
+    const res = card.querySelector(".rule-resources");
+    if (res) res.classList.toggle("open");
+  }
+</script>
+</body>
+</html>
