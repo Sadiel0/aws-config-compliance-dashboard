@@ -191,13 +191,14 @@
       placeholder="Paste your API Gateway URL here → https://abc123.execute-api.us-east-1.amazonaws.com/compliance"
     />
     <button class="btn" id="scanBtn" onclick="fetchCompliance()">▶ Scan</button>
+    <button class="btn" onclick="loadDemo()" style="border-color:rgba(0,204,255,0.4);color:#00ccff;background:rgba(0,204,255,0.08);white-space:nowrap">⚡ Demo</button>
   </div>
 
   <!-- Dynamic content -->
   <div id="content">
     <div class="state-box">
       <div class="state-icon">◈</div>
-      <div class="state-text">ENTER YOUR API GATEWAY URL AND HIT SCAN<br>TO PULL LIVE COMPLIANCE DATA FROM YOUR AWS ACCOUNT</div>
+      <div class="state-text">PASTE YOUR API GATEWAY URL AND HIT SCAN<br>— OR HIT ⚡ DEMO TO SEE A SIMULATED AWS ACCOUNT —</div>
     </div>
   </div>
 
@@ -325,6 +326,78 @@
   function toggleRule(card) {
     const res = card.querySelector(".rule-resources");
     if (res) res.classList.toggle("open");
+  }
+  function loadDemo() {
+    const demoData = {
+      summary: {
+        total: 8,
+        compliant: 5,
+        nonCompliant: 2,
+        insufficientData: 1,
+        notApplicable: 0,
+        scannedAt: new Date().toISOString()
+      },
+      rules: [
+        {
+          ruleName: "s3-bucket-public-read-prohibited",
+          complianceType: "NON_COMPLIANT",
+          nonCompliantResources: [
+            { resourceType: "AWS::S3::Bucket", resourceId: "prod-assets-bucket-2024", annotation: "Bucket ACL allows public read access" },
+            { resourceType: "AWS::S3::Bucket", resourceId: "marketing-uploads-bucket", annotation: "Bucket policy grants s3:GetObject to principal *" }
+          ],
+          nonCompliantCount: 2
+        },
+        {
+          ruleName: "iam-root-access-key-check",
+          complianceType: "COMPLIANT",
+          nonCompliantResources: [],
+          nonCompliantCount: 0
+        },
+        {
+          ruleName: "iam-password-policy",
+          complianceType: "NON_COMPLIANT",
+          nonCompliantResources: [
+            { resourceType: "AWS::IAM::Account", resourceId: "212818617945", annotation: "Password policy does not require minimum length of 14 characters" }
+          ],
+          nonCompliantCount: 1
+        },
+        {
+          ruleName: "restricted-ssh",
+          complianceType: "COMPLIANT",
+          nonCompliantResources: [],
+          nonCompliantCount: 0
+        },
+        {
+          ruleName: "ec2-imdsv2-check",
+          complianceType: "COMPLIANT",
+          nonCompliantResources: [],
+          nonCompliantCount: 0
+        },
+        {
+          ruleName: "ec2-instances-in-vpc",
+          complianceType: "COMPLIANT",
+          nonCompliantResources: [],
+          nonCompliantCount: 0
+        },
+        {
+          ruleName: "cloudtrail-enabled",
+          complianceType: "INSUFFICIENT_DATA",
+          nonCompliantResources: [],
+          nonCompliantCount: 0
+        },
+        {
+          ruleName: "mfa-enabled-for-iam-console-access",
+          complianceType: "COMPLIANT",
+          nonCompliantResources: [],
+          nonCompliantCount: 0
+        }
+      ]
+    };
+
+    // Show demo banner
+    document.getElementById("scannedAt").innerHTML =
+      '<span style="color:#00ccff;letter-spacing:2px">⚡ DEMO MODE · SIMULATED AWS ACCOUNT</span>';
+    render(demoData);
   }
 </script>
 </body>
