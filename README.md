@@ -6,6 +6,12 @@ A real-time AWS compliance monitoring dashboard powered by AWS Config, Lambda, a
 ![Language](https://img.shields.io/badge/Python-3.12-blue?style=flat-square&logo=python)
 ![Frontend](https://img.shields.io/badge/Frontend-Vanilla%20HTML%2FJS-green?style=flat-square)
 
+## 🔴 Live Demo
+
+**[→ View the dashboard](https://sadiel0.github.io/aws-config-compliance-dashboard/dashboard/index.html)**
+
+Hit the **⚡ Demo** button to see a simulated AWS account with real findings — no AWS account needed.
+
 ---
 
 ## What It Does
